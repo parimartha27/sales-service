@@ -17,7 +17,7 @@ public class SalesController {
     private final SalesService salesService;
 
     @PostMapping("/create")
-    public ResponseEntity<Object> createTransaction(@RequestBody List<TransactionSaleRequest> request){
+    public ResponseEntity<Object> createTransaction(@RequestBody TransactionSaleRequest request){
 
         return salesService.createTransaction(request);
     }

@@ -1,10 +1,7 @@
 package com.training.sales.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.training.sales.dto.ApiResponse;
-import com.training.sales.dto.ProductResponse;
-import com.training.sales.dto.TransactionSaleRequest;
-import com.training.sales.dto.TransactionSaleResponse;
+import com.training.sales.dto.*;
 import com.training.sales.entity.SalesEntity;
 import com.training.sales.feign.ProductClient;
 import com.training.sales.repository.SalesRepository;
@@ -16,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -24,14 +22,19 @@ public class SalesService {
 
     private final SalesRepository salesRepository;
     private final ProductClient productClient;
+    private final ObjectMapper mapper;
 
     public ResponseEntity<Object> createTransaction(TransactionSaleRequest request) {
 
         LocalDateTime time = LocalDateTime.now();
-
         log.info("Start sales process at: {}", time);
-        ProductResponse product = productClient.getProductByName(request.getProductName());
 
+        log.info("hit product client - getProductByName: {}", request.getProductName());
+        FindByNameRequest nameRequest = new FindByNameRequest(request.getProductName());
+        ApiResponse apiResponse = Objects.requireNonNull(productClient.getProductByName(nameRequest).getBody());
+        ProductResponse product = mapper.convertValue(apiResponse.getOutputSchema(), ProductResponse.class);
+
+        log.info("validate product response: {} and request: {}", product, request);
         if(product == null) {
             return generateErrorResponse("P-404", "Product not found", HttpStatus.NOT_FOUND);
         }
@@ -40,10 +43,15 @@ public class SalesService {
             return generateErrorResponse("S-400", "Product not available for quantity you requested", HttpStatus.BAD_REQUEST);
         }
 
+        log.info("Update product stock");
+        UpdateStockRequest updateStockRequest = UpdateStockRequest.builder().productName(request.getProductName()).quantity(request.getQuantity()).build();
+        productClient.updateStockProduct(updateStockRequest);
+
         Double totalPrice = calculateTotalPrice(request.getQuantity(), product.getPrice());
         String invoiceNumber = generateInvoiceNumber();
 
-        SalesEntity entity = mappingSalesEntity(product, request, invoiceNumber, totalPrice, time);
+        log.info("Save data to DB");
+        SalesEntity entity = saveData(product, request, invoiceNumber, totalPrice, time);
 
         TransactionSaleResponse response = TransactionSaleResponse.builder()
                 .invoiceNumber(entity.getInvoiceNumber())
@@ -67,7 +75,7 @@ public class SalesService {
         return quantity * price;
     }
 
-    private SalesEntity mappingSalesEntity(
+    private SalesEntity saveData(
             ProductResponse product, TransactionSaleRequest request,
             String invoiceNumber, Double totalPrice, LocalDateTime time){
         SalesEntity salesEntity = SalesEntity.builder()
