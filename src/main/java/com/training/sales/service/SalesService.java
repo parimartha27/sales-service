@@ -1,8 +1,10 @@
 package com.training.sales.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.training.sales.constant.Constant;
 import com.training.sales.dto.*;
 import com.training.sales.entity.SalesEntity;
+import com.training.sales.feign.CustomerClient;
 import com.training.sales.feign.ProductClient;
 import com.training.sales.repository.SalesRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +13,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -22,12 +28,10 @@ public class SalesService {
 
     private final SalesRepository salesRepository;
     private final ProductClient productClient;
+    private final CustomerClient customerClient;
     private final ObjectMapper mapper;
 
     public ResponseEntity<Object> createTransaction(TransactionSaleRequest request) {
-
-        LocalDateTime time = LocalDateTime.now();
-        log.info("Start sales process at: {}", time);
 
         log.info("hit product client - getProductByName: {}", request.getProductName());
         FindByNameRequest nameRequest = new FindByNameRequest(request.getProductName());
@@ -36,11 +40,13 @@ public class SalesService {
 
         log.info("validate product response: {} and request: {}", product, request);
         if(product == null) {
-            return generateErrorResponse("P-404", "Product not found", HttpStatus.NOT_FOUND);
+            return generateErrorResponse(apiResponse.getErrorSchema().getErrorCode(),
+                    apiResponse.getErrorSchema().getErrorMessage(), HttpStatus.NOT_FOUND);
         }
 
         if(product.getStock() < request.getQuantity()){
-            return generateErrorResponse("S-400", "Product not available for quantity you requested", HttpStatus.BAD_REQUEST);
+            return generateErrorResponse(Constant.BAD_REQUEST,
+                    "Product not available for quantity you requested", HttpStatus.BAD_REQUEST);
         }
 
         log.info("Update product stock");
@@ -51,17 +57,71 @@ public class SalesService {
         String invoiceNumber = generateInvoiceNumber();
 
         log.info("Save data to DB");
-        SalesEntity entity = saveData(product, request, invoiceNumber, totalPrice, time);
+        SalesEntity entity = saveData(product, request, invoiceNumber, totalPrice);
 
         TransactionSaleResponse response = TransactionSaleResponse.builder()
                 .invoiceNumber(entity.getInvoiceNumber())
                 .totalPrice(entity.getTotalPrice())
-                .customerEmail(entity.getCustomerEmail())
                 .productName(entity.getProductName())
-                .salesDate(entity.getSalesDate())
+                .createdDate(entity.getCreatedDate())
                 .build();
 
-        return generateResponse("S-200", "Sale transaction successfully", response, HttpStatus.OK);
+        return generateResponse(Constant.SUCCESS, "Sale transaction successfully", response, HttpStatus.OK);
+    }
+
+    public ResponseEntity<Object> getAllTransaction(){
+        var transactions = salesRepository.findAll();
+
+        List<SalesResponse> responses = new ArrayList<>();
+
+        for(SalesEntity transaction : transactions){
+            SalesResponse response = mapper.convertValue(transaction, SalesResponse.class);
+            responses.add(response);
+        }
+
+        return generateResponse(Constant.SUCCESS, "Success", responses, HttpStatus.OK);
+    }
+
+    public ResponseEntity<Object> payTransaction(PayTransactionRequest request){
+
+        Optional<SalesEntity> salesEntity = salesRepository.findByInvoiceNumber(request.getInvoiceNumber());
+
+        if(salesEntity.isEmpty()){
+            return generateResponse(Constant.BAD_REQUEST, "Data not found", null, HttpStatus.BAD_REQUEST);
+        }
+
+        SalesEntity sales = salesEntity.get();
+
+        if(request.getPaymentAmount() < sales.getTotalPrice()){
+            return generateResponse(Constant.BAD_REQUEST, "Payment amount must be equal with total price", null, HttpStatus.BAD_REQUEST);
+        }
+
+        UpdateBalanceRequest updateBalanceRequest = UpdateBalanceRequest.builder()
+                .email(request.getEmail())
+                .totalPrice(sales.getTotalPrice())
+                .build();
+
+        ApiResponse apiResponse = Objects.requireNonNull(customerClient.updateBalance(updateBalanceRequest).getBody());
+        CustomerResponse customer = mapper.convertValue(apiResponse.getOutputSchema(), CustomerResponse.class);
+
+        if(apiResponse.getErrorSchema().getErrorCode().equalsIgnoreCase("C-404")){
+            return generateResponse(apiResponse.getErrorSchema().getErrorCode(), apiResponse.getErrorSchema().getErrorMessage(),
+                    null, HttpStatus.NOT_FOUND);
+        }
+
+        if(apiResponse.getErrorSchema().getErrorCode().equalsIgnoreCase("C-400")){
+            return generateResponse(Constant.BAD_REQUEST, apiResponse.getErrorSchema().getErrorMessage(),
+                    null, HttpStatus.BAD_REQUEST);
+        }
+
+        sales.setEmail(customer.getEmail());
+        sales.setCustomerName(customer.getName());
+        sales.setReceivedMoney(request.getPaymentAmount());
+        sales.setUpdatedDate(LocalDateTime.now());
+
+        salesRepository.save(sales);
+
+        return generateResponse(Constant.SUCCESS, "Success do payment sale", null, HttpStatus.OK);
     }
 
     private String generateInvoiceNumber(){
@@ -77,15 +137,14 @@ public class SalesService {
 
     private SalesEntity saveData(
             ProductResponse product, TransactionSaleRequest request,
-            String invoiceNumber, Double totalPrice, LocalDateTime time){
+            String invoiceNumber, Double totalPrice){
         SalesEntity salesEntity = SalesEntity.builder()
                 .productName(product.getName())
-                .customerName(request.getCustomerName())
-                .customerEmail(request.getCustomerEmail())
                 .invoiceNumber(invoiceNumber)
                 .totalPrice(totalPrice)
                 .quantity(request.getQuantity())
-                .salesDate(time)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
                 .build();
 
         salesRepository.save(salesEntity);

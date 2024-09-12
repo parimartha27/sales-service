@@ -1,6 +1,7 @@
 package com.training.sales.controller;
 
 import com.training.sales.dto.ApiResponse;
+import com.training.sales.dto.PayTransactionRequest;
 import com.training.sales.dto.TransactionSaleRequest;
 import com.training.sales.service.SalesService;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +19,18 @@ public class SalesController {
 
     @PostMapping("/create")
     public ResponseEntity<Object> createTransaction(@RequestBody TransactionSaleRequest request){
-
         return salesService.createTransaction(request);
     }
+
+    @GetMapping()
+    public ResponseEntity<Object> getAllTransaction(){
+        return salesService.getAllTransaction();
+    }
+
+    @PostMapping("/pay-sales")
+    public ResponseEntity<Object> payTransaction(@RequestBody PayTransactionRequest request){
+        return salesService.payTransaction(request);
+    }
+
 
 }

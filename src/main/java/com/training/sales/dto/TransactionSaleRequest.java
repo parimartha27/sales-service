@@ -17,7 +17,5 @@ public class TransactionSaleRequest {
 
     private String productName;
     private int quantity;
-    private String customerName;
-    private String customerEmail;
 
 }

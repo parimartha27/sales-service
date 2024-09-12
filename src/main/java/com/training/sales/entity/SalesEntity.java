@@ -33,7 +33,7 @@ public class SalesEntity {
     private String customerName;
 
     @NotBlank(message = "Customer email can't be null, empty or blank")
-    private String customerEmail;
+    private String email;
 
     @NotBlank(message = "Invoice number can't be null, empty or blank")
     private String invoiceNumber;
@@ -41,10 +41,14 @@ public class SalesEntity {
     @Min(value = 1, message="Total price must be greater than 0")
     private Double totalPrice;
 
-    @Min(value = 1, message="Quantity received must be greater than 0")
+    @Min(value = 1, message="Quantity must be greater than 0")
     private int quantity;
 
-    @CreationTimestamp
-    private LocalDateTime salesDate;
+    private Double receivedMoney;
 
+    @CreationTimestamp
+    private LocalDateTime createdDate;
+
+    @CreationTimestamp
+    private LocalDateTime updatedDate;
 }

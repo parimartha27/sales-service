@@ -7,17 +7,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public class TransactionSaleResponse {
-    private String invoiceNumber;
-    private String productName;
+public class UpdateBalanceRequest {
+    private String email;
     private Double totalPrice;
-    private LocalDateTime createdDate;
 }
+
+
