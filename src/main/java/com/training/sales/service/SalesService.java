@@ -142,6 +142,19 @@ public class SalesService {
         return generateResponse(Constant.SUCCESS, "Success do payment sale", null, HttpStatus.OK);
     }
 
+    public ResponseEntity<Object> getSaleTransactionByInvoiceNumber(String invoiceNumber){
+        Optional<SalesEntity> sales = salesRepository.findByInvoiceNumber(invoiceNumber);
+
+        if(sales.isEmpty()){
+            return generateErrorResponse(Constant.BAD_REQUEST,
+                    "Data Not Found", HttpStatus.BAD_REQUEST);
+        }
+
+        SalesResponse response = mapper.convertValue(sales.get(), SalesResponse.class);
+
+        return generateResponse(Constant.SUCCESS, "Success", response, HttpStatus.OK);
+    }
+
     private String generateInvoiceNumber(){
         LocalDateTime timestamp = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");

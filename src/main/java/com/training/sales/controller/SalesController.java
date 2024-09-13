@@ -32,5 +32,10 @@ public class SalesController {
         return salesService.payTransaction(request);
     }
 
+    @GetMapping("/{invoiceNumber}")
+    public ResponseEntity<Object> getDetailSaleByInvoiceNumber(@PathVariable String invoiceNumber){
+        return salesService.getSaleTransactionByInvoiceNumber(invoiceNumber);
+    }
+
 
 }
