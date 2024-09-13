@@ -35,7 +35,13 @@ public class SalesService {
 
         log.info("hit product client - getProductByName: {}", request.getProductName());
         FindByNameRequest nameRequest = new FindByNameRequest(request.getProductName());
-        ApiResponse apiResponse = Objects.requireNonNull(productClient.getProductByName(nameRequest).getBody());
+        ApiResponse apiResponse = new ApiResponse();
+        try {
+            apiResponse = Objects.requireNonNull(productClient.getProductByName(nameRequest).getBody());
+        }catch (Exception ex){
+            log.info("Error hit product service with message: " + ex.getMessage());
+        }
+
         ProductResponse product = mapper.convertValue(apiResponse.getOutputSchema(), ProductResponse.class);
 
         log.info("validate product response: {} and request: {}", product, request);
@@ -51,7 +57,12 @@ public class SalesService {
 
         log.info("Update product stock");
         UpdateStockRequest updateStockRequest = UpdateStockRequest.builder().productName(request.getProductName()).quantity(request.getQuantity()).build();
-        productClient.updateStockProduct(updateStockRequest);
+
+        try {
+            productClient.updateStockProduct(updateStockRequest);
+        }catch (Exception ex){
+            log.info("Error hit update stock product with message: " + ex.getMessage());
+        }
 
         Double totalPrice = calculateTotalPrice(request.getQuantity(), product.getPrice());
         String invoiceNumber = generateInvoiceNumber();
@@ -101,7 +112,13 @@ public class SalesService {
                 .totalPrice(sales.getTotalPrice())
                 .build();
 
-        ApiResponse apiResponse = Objects.requireNonNull(customerClient.updateBalance(updateBalanceRequest).getBody());
+        ApiResponse apiResponse = new ApiResponse();
+        try {
+            apiResponse = Objects.requireNonNull(customerClient.updateBalance(updateBalanceRequest).getBody());
+        }catch (Exception ex){
+            log.info("Failed to update balance with message: {}", ex.getMessage());
+        }
+
         CustomerResponse customer = mapper.convertValue(apiResponse.getOutputSchema(), CustomerResponse.class);
 
         if(apiResponse.getErrorSchema().getErrorCode().equalsIgnoreCase("C-404")){
@@ -117,6 +134,7 @@ public class SalesService {
         sales.setEmail(customer.getEmail());
         sales.setCustomerName(customer.getName());
         sales.setReceivedMoney(request.getPaymentAmount());
+        sales.setStatus("PAID");
         sales.setUpdatedDate(LocalDateTime.now());
 
         salesRepository.save(sales);
@@ -143,6 +161,7 @@ public class SalesService {
                 .invoiceNumber(invoiceNumber)
                 .totalPrice(totalPrice)
                 .quantity(request.getQuantity())
+                .status("WAITING_FOR_PAYMENT")
                 .createdDate(LocalDateTime.now())
                 .updatedDate(LocalDateTime.now())
                 .build();

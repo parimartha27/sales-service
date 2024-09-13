@@ -29,10 +29,8 @@ public class SalesEntity {
     @NotBlank(message = "Product name can't be null, empty or blank")
     private String productName;
 
-    @NotBlank(message = "Customer name can't be null, empty or blank")
     private String customerName;
 
-    @NotBlank(message = "Customer email can't be null, empty or blank")
     private String email;
 
     @NotBlank(message = "Invoice number can't be null, empty or blank")
@@ -45,6 +43,8 @@ public class SalesEntity {
     private int quantity;
 
     private Double receivedMoney;
+
+    private String status;
 
     @CreationTimestamp
     private LocalDateTime createdDate;

@@ -22,6 +22,7 @@ public class SalesResponse {
     private String invoiceNumber;
     private Double totalPrice;
     private int quantity;
+    private String status;
     private Double receivedMoney;
     private LocalDateTime createdDate;
 }
